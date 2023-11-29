@@ -1,0 +1,28 @@
+
+\documentclass[]{scrreprt}
+
+\usepackage[style=ieee,language=auto,autolang=langname]{biblatex}
+\addbibresource[]{references.bib}
+\usepackage{import}
+\usepackage{chngcntr}
+\counterwithin*{chapter}{part}
+\counterwithin*{section}{chapter}
+\usepackage{graphicx}
+\graphicspath{{./images/}}
+\usepackage{wrapfig}
+\usepackage{hyperref}
+
+\def\projectname{HardAY}
+
+% Title Page
+\title{\projectname}
+\author{John Moser}
+
+\begin{document}
+	\maketitle
+	
+	\tableofcontents
+	
+	\import{sections/}{overview.tex}
+	\printbibliography
+\end{document}   
