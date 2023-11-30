@@ -1,5 +1,5 @@
 
-\documentclass[]{scrreprt}
+\documentclass[dvipsnames]{scrreprt}
 
 \usepackage[style=ieee,language=auto,autolang=langname]{biblatex}
 \addbibresource[]{references.bib}
@@ -12,7 +12,7 @@
 \usepackage{wrapfig}
 \usepackage{hyperref}
 \usepackage{tikz}
-\usetikzlibrary{arrows,arrows.meta}
+\usetikzlibrary{arrows,arrows.meta,calc}
 
 \def\projectname{HardAY}
 
@@ -22,9 +22,9 @@
 
 \begin{document}
 	\maketitle
-	
+
 	\tableofcontents
-	
+
 	\import{sections/}{overview.tex}
 	\printbibliography
-\end{document}   
+\end{document}
