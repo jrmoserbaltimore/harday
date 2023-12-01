@@ -14,19 +14,30 @@
     \footnotesize
     \matrix[draw, column sep=0.5cm, row sep=0.5cm, nodes=draw, fill=SkyBlue] (Tone Generator)
     {
+        &&&&\node[draw, minimum width=0, minimum height=0, anchor=west] (f Cosine Invert) {$-$};&\\
     \node[register] (Phase Increment) {Phase\\Increment};
-    & &\\
+     & &
+     & \node[draw, minimum width=0, minimum height=0, anchor=west] (Delay Cosine) {$z^{-1}$};
+     & \node[symbol node, circle, font={\Huge}] (Sum Cosine) {$\oplus$};
+     & \node[symbol node, circle, font={\Huge}] (f Cosine) {$\otimes$};
+     \\
   	 \node[accumulator] (Accumulator) {Phase\\Accumulators};
       & \node[symbol node, circle, font={\Huge}] (Phase Sum) {$\oplus$};
-      &\\
-     \node[twoonedemux 2, muxdemux def={Lh=2.5,Rh=3}, rotate=-90] (Phase Sign Select) {};
+      & & \node[symbol node, circle, font={\Huge}] (f Sine) {$\otimes$};
+      & \node[symbol node, circle, font={\Huge}] (Sum Sine) {$\oplus$};
+      & \node[draw, minimum width=0, minimum height=0, anchor=west] (Delay Sine) {$z^{-1}$};\\
+    \node[ieeestd xor port, rotate=-90, scale=0.5] (Phase Sign Select) {};
      & \node[ieeestd and port, rotate=-90, scale=0.5] (Phase Sign Select AND){};
-     & \node[minimum width=0, minimum height=0] (Triangle Reg) {Triangle};\\
-     \node[symbol node, circle, font={\Huge}] (Output Sum) {$\oplus$};
-     & &\\
+     & \node[minimum width=0, minimum height=0] (Triangle Reg) {Triangle};
+     & \node[twoonedemux, anchor=lpin 1, rotate=90] (Sine Select) {};
+     & \node[minimum width=0, minimum height=0] (Sine Reg) {Sine};\\
+    \node[minimum width=0, minimum height=0] (Square Reg) {Square Mask};
+     &\node[symbol node, circle, font={\Huge}, xshift=0.5cm] (Output Sum) {$\oplus$};
+     & \node[ieeestd and port, scale=0.5] (Output Square AND){};\\
     };
     \node[twoonedemux, anchor=lpin 1] (Phase Increment Select) at (Phase Sum.east) {};
     \node[draw, minimum width=0, minimum height=0, anchor=west] (Phase Increment Shift) at (Phase Increment Select.rpin 2) {<<1};
+    \node[draw, minimum width=0, minimum height=0, anchor=north] (Direction Reg) at ($(Phase Sign Select AND.out) + (0,0.1cm)$) {d};
     \draw (Phase Increment.east) -| (Phase Increment Shift.north);
     \draw (Phase Increment Shift.north) |- (Phase Increment Select.rpin 1);
     \draw (Triangle Reg.north) -- ++(0,0.5cm) -| (Phase Increment Select.bpin 1);
@@ -34,10 +45,30 @@
 
     \draw[straight arrow] (Accumulator.east) -- (Phase Sum.west);
     \draw[straight arrow] (Phase Sum.north) arc (30:140:1.25cm);
-    \draw[] (Accumulator.south) -- (Phase Sign Select.blpin 1);
+    \draw[] (Accumulator.south) -- ++ (0,-0.25cm) -| (Phase Sign Select.in 2);
     \draw[] (Accumulator.south) ++ (0.75cm,0) |- (Phase Sign Select AND.in 2);
-    \draw[] (Phase Sign Select AND.out) -| (Phase Sign Select.tpin 1);
+    \draw[] (Direction Reg.west) -- ++ (-1.25cm,0) |- (Phase Sign Select.in 1);
+    \draw[straight arrow] (Direction Reg.east) -| (Output Sum.north);
+    \draw[] (Phase Sign Select.out) |- ++(1.5cm,-0.25cm) |- (Output Sum.west);
+    \draw[] (Square Reg.east) -| ++(0.25cm,-0.35cm) -| (Output Square AND.in 2);
+    \draw[] (Output Sum.east) -- ++(0.5cm,0) |- (Output Square AND.in 1);
 
-    % TODO:  Add the square wave mask.
-    % TODO:  Indicate port 1 to be subtracted from port 0 on the output
+    % Sine generator
+    \draw[straight arrow] (Phase Increment Shift.north|-Phase Increment.east) |- (f Sine.west);
+    \draw[straight arrow] (Phase Increment Shift.north|-Phase Increment.east) |- (Phase Increment Shift.north|-f Cosine Invert.west) -- (f Cosine Invert.west);
+    \draw[straight arrow] (f Cosine Invert.east) -| (f Cosine.north);
+    \draw[straight arrow] (Delay Sine.south) -- ++(0,-0.5) -| (Sum Sine.south);
+    \draw[straight arrow] (Delay Cosine.south) -- ++(0,-0.5) -| (Sum Cosine.south);
+    \draw[straight arrow] (Delay Sine.north) -- ++(0,0.5) -| (f Cosine.south);
+    \draw[straight arrow] (Delay Cosine.south) -- ++(0,-0.5cm) -| (f Sine.north);
+
+    \draw[straight arrow] (f Sine.east) -- (Sum Sine.west);
+    \draw[straight arrow] (f Cosine.west) -- (Sum Cosine.east);
+    \draw[straight arrow] (Sum Sine.east) -- (Delay Sine.west);
+    \draw[straight arrow] (Sum Cosine.west) -- (Delay Cosine.east);
+
+    \draw[] (Output Square AND.out) -- ++(0.5cm,0) |- (Sine Select.rpin 1);
+    \draw[] (Delay Sine.south) -- ++(0,-0.5) -| (Sine Select.rpin 2);
+    \draw[] (Sine Reg.north) |- (Sine Select.bpin 1);
+    \draw[straight arrow] (Sine Select.lpin 1) -- (Sine Select.lpin 1|-Output Sum.east) -- ++(4.5cm,0);
 \end{tikzpicture}

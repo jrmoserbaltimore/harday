@@ -113,8 +113,9 @@ The LFOs provide four LFO waveforms for each of three oscillators.  The waveform
 \begin{figure}[ht]
     \centering
     \input{diagrams/lfo-block-diagram.tex}
-    \caption{\label{fig:lfo-block-diagram} Block diagram of the low frequency oscillator unit.}
+    \caption{\label{fig:lfo-block-diagram} Block diagram of the low frequency oscillator unit.  The unit uses a Chamberlin SVF (top right) as a sine oscillator, storing $f$ in the phase increment register.}
 \end{figure}
+
 
 The LFO internally only generates a ramp.  The ramp and square follow the period given by the phase, with the square using the MSB of the phase as the output value.  The triangle relies on an overflow:  once the phase rolls over its 16-bit value, a 17th carry-out bit is stored in the Direction register if the waveform is triangle.  If the waveform is triangle, then the output is rendered as $(0-Phase)$.  To compensate for this, the phase increment is doubled when the waveform is triangle.
 
