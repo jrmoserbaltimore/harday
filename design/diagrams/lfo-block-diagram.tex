@@ -1,0 +1,43 @@
+% vim: sw=4 ts=4 et
+
+\begin{tikzpicture}[
+        every node/.append style={align=center, minimum width=2cm, minimum height=2cm,fill=white},
+        straight arrow/.style={-{Latex[length=2mm]}},
+        symbol node/.append style={minimum width = 0.0cm, minimum height=0.0cm, inner sep=-0.1cm, outer sep=0cm, align=center, draw=none},
+        DPW/.append style={fill=Emerald!50},
+        accumulator/.append style={minimum height=1cm,fill=Peach!50},
+        differencer/.append style={accumulator,fill=Red!45},
+        register/.append style={accumulator, fill=Yellow!35},
+        twoonedemux/.append style={muxdemux,muxdemux def={Lh=1.5,Rh=2,w=1,NL=1,NR=2,NB=1}, muxdemux label={R1=0, R2=1}},
+        twoonedemux 2/.append style={muxdemux,muxdemux def={Lh=1.5,Rh=2,w=1,NL=1,NR=2,NB=0,NT=1}, muxdemux label={R1=0, R2=1}}
+    ]
+    \footnotesize
+    \matrix[draw, column sep=0.5cm, row sep=0.5cm, nodes=draw, fill=SkyBlue] (Tone Generator)
+    {
+    \node[register] (Phase Increment) {Phase\\Increment};
+    & &\\
+  	 \node[accumulator] (Accumulator) {Phase\\Accumulators};
+      & \node[symbol node, circle, font={\Huge}] (Phase Sum) {$\oplus$};
+      &\\
+     \node[twoonedemux 2, muxdemux def={Lh=2.5,Rh=3}, rotate=-90] (Phase Sign Select) {};
+     & \node[ieeestd and port, rotate=-90, scale=0.5] (Phase Sign Select AND){};
+     & \node[minimum width=0, minimum height=0] (Triangle Reg) {Triangle};\\
+     \node[symbol node, circle, font={\Huge}] (Output Sum) {$\oplus$};
+     & &\\
+    };
+    \node[twoonedemux, anchor=lpin 1] (Phase Increment Select) at (Phase Sum.east) {};
+    \node[draw, minimum width=0, minimum height=0, anchor=west] (Phase Increment Shift) at (Phase Increment Select.rpin 2) {<<1};
+    \draw (Phase Increment.east) -| (Phase Increment Shift.north);
+    \draw (Phase Increment Shift.north) |- (Phase Increment Select.rpin 1);
+    \draw (Triangle Reg.north) -- ++(0,0.5cm) -| (Phase Increment Select.bpin 1);
+    \draw (Triangle Reg.north) -- ++(0,0.5cm) -| (Phase Sign Select AND.in 1);
+
+    \draw[straight arrow] (Accumulator.east) -- (Phase Sum.west);
+    \draw[straight arrow] (Phase Sum.north) arc (30:140:1.25cm);
+    \draw[] (Accumulator.south) -- (Phase Sign Select.blpin 1);
+    \draw[] (Accumulator.south) ++ (0.75cm,0) |- (Phase Sign Select AND.in 2);
+    \draw[] (Phase Sign Select AND.out) -| (Phase Sign Select.tpin 1);
+
+    % TODO:  Add the square wave mask.
+    % TODO:  Indicate port 1 to be subtracted from port 0 on the output
+\end{tikzpicture}
