@@ -2,7 +2,7 @@
 
 \chapter{Overview}
 
-\projectname{ }implements a configuration-compatible AY-3-8930 and YM2149F synthesizer core in Amaranth HDL.  It starts in the the AY-3-8910 compatibility mode and the mode select to AY-3-8930 expanded capability mode, as per the AY-3-8930.
+\projectname{ }implements a configuration-compatible AY-3-8930 \autocite{AY38930ds} and YM2149 \autocite{YM2149ds} synthesizer core in Amaranth HDL.  It starts in the the AY-3-8910 compatibility mode and the mode select to AY-3-8930 expanded capability mode, as per the AY-3-8930.
 
 \projectname{ }uses information from the Mame source code, but does not use the Mame source code itself and is not supported by Mame.
 
@@ -103,7 +103,7 @@ Because $\frac{d}{dx}f(x)+\frac{d}{dx}g{x}=\frac{d}{dx}(f(x)+g(x))$, differencin
 
 Due to scaling costs at lower frequencies, the signal is mixed from a fourth-order DPW and a second-order DPW around the 1,000Hz mark.  Fourth-order
 
-A total of four polynomial generators generate two waveforms per each of three channels, requiring storage of six waveform states.
+Two polynomial generators each generate a total of two polynomial waveforms per each of three channels, requiring storage of six waveform states.  The two polynomial waveforms are themselves generated from two waveforms each, so twelve waveforms are generated per sample.
 
 
 \section{Low-Frequency Oscillator}
