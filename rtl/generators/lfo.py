@@ -35,7 +35,6 @@ class LFO(Elaboratable):
         self.PhaseAccumulator = []
         self.Waveform = []
         self.Direction = []
-        self.Reset = []
         self.SineDelay = []
         self.CosineDelay = []
         for x in range(0,int):
@@ -43,7 +42,6 @@ class LFO(Elaboratable):
             self.PhaseAccumulator.append(Signal(16))
             self.Waveform.append(Signal(2))
             self.Direction.append(Signal(1))
-            self.Reset.append(Signal(1))
             self.SineDelay.append(Signal(16))
             self.CosineDelay.append(Signal(16))
         # Updating state tracks which oscillator is being updated 
@@ -165,18 +163,55 @@ class LFO(Elaboratable):
         with m.Switch(self.Waveform[self.Address]):
             # Sine
             with m.Case(3):
-                m.d.sync += self.SineDelay[self.Address]
+                m.d.sync += self.DataOut.eq(self.SineDelay[self.Address])
             # Square, take the MSB, XOR with direction, and shift to
             # MSB.  Direction inverts duty cycle.
             with m.Case(1):
-                m.d.sync += ((self.PhaseAccumulator[self.Address][15] ^ self.Direction[Address]) << 15)
+                m.d.sync += self.DataOut.eq(
+                                (self.PhaseAccumulator[self.Address][15] ^ self.Direction[Address]) << 15
+                            )
             # Ramps and triangles invert if Direction is 1; triangles
             # invert Direction when they overflow, ramps can slope up
             # or down
             with m.Case():
-                m.d.sync += ((PhaseAccumulator[self.Address] ^ self.Direction[Address].replicate(16)) + self.direction)
-        # TODO:  Configuration when WriteEnabled
-        #   - Set sin=0 cos=1; cos=-1 for Direction=1
+                m.d.sync += self.DataOut.eq(
+                                (self.PhaseAccumulator[self.Address] ^ self.Direction[Address].replicate(16))
+                                + self.Direction[Address]
+                            )
+
+        with m.If(self.WriteEnable):
+            # Select either the PhaseIncrement register or the
+            # Waveform, Direction, and Reset command
+            with m.Switch(self.WriteSelect):
+                with m.Case(0):
+                    m.d.sync += self.PhaseIncrement[self.Address].eq(self.DataIn)
+                with m.Case(1):
+                    m.d.sync += self.Waveform[self.Address].eq(
+                            (self.Waveform[self.Address] & ~self.WriteMask[3:2])
+                            | (self.DataIn[3:2] & self.WriteMask[3:2])
+                        )
+                    with m.If(self.WriteMask[1]):
+                        m.d.sync += self.Direction[self.Address].eq(self.DataIn[1])
+                    # Reset signal
+                    with m.if(self.WriteMask[0] & self.DataIn[0]):
+                        m.d.sync += self.PhaseAccumulator[self.Address].eq(0)
+                        # Clear the sine wave.  Move tau/2 forward if
+                        # direction is 1 (i.e. reverse sine).
+                        #
+                        # If we're setting Direction, then use the
+                        # incoming value; else use the registered value
+                        with m.Switch(mux(self.WriteMask[1], self.DataIn[1],
+                                          self.Direction[self.Address]):
+                            with m.Case(0):
+                                m.d.sync += [
+                                    self.SineDelay[self.Address].eq(0),
+                                    self.CosineDelay[self.Address].eq(1)
+                                ]
+                            with m.Case(1):
+                                m.d.sync += [
+                                    self.SineDelay[self.Address].eq(0),
+                                    self.CosineDelay[self.Address].eq(-1)
+                                ]
         return m
 
     def _is_ramp(self, signal: Signal(2)):
