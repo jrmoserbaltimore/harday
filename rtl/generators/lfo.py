@@ -180,24 +180,22 @@ class LFO(Elaboratable):
         #     Ramp:       +   +
         #     Triangle:   +   -
         #     Square:     MSB ~MSB
-        with m.Switch(self.Waveform[self.Address]):
-            # Sine
-            with m.Case(3):
-                m.d.sync += self.DataOut.eq(self.SineDelay[self.Address])
+        with m.If(_is_sign(self.Waveform[self.Address])):
+            m.d.sync += self.DataOut.eq(self.SineDelay[self.Address])
+        with m.Elif(_is_square(self.Waveform[self.Address])):
             # Square, take the MSB, XOR with direction, and shift to
             # MSB.  Direction inverts duty cycle.
-            with m.Case(1):
-                m.d.sync += self.DataOut.eq(
-                                (self.PhaseAccumulator[self.Address][15] ^ self.Direction[Address]) << 15
-                            )
+            m.d.sync += self.DataOut.eq(
+                        (self.PhaseAccumulator[self.Address][15] ^ self.Direction[Address]) << 15
+                    )
+        with m.Else():
             # Ramps and triangles invert if Direction is 1; triangles
             # invert Direction when they overflow, ramps can slope up
             # or down
-            with m.Case():
-                m.d.sync += self.DataOut.eq(
-                                (self.PhaseAccumulator[self.Address] ^ self.Direction[Address].replicate(16))
-                                + self.Direction[Address]
-                            )
+            m.d.sync += self.DataOut.eq(
+                            (self.PhaseAccumulator[self.Address] ^ self.Direction[Address].replicate(16))
+                            + self.Direction[Address]
+                        )
 
         with m.If(self.WriteEnable):
             # Select either the PhaseIncrement register or the
