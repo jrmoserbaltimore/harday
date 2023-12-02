@@ -51,29 +51,16 @@ class LFO(Elaboratable):
 
     def elaborate(self, platform) -> Module:
         m = Module()
-        
-        # Data for sine and cosine update, the index of the register to
-        # update, and whether to update.  For pipelining updates.
-        SineUpdate = [Signal(16) for x in range(0,multiplier_delay)]
-        CosineUpdate = [Signal(16) for x in range(0,multiplier_delay)]
-        SineUpdateIndex = [Signal(ceil(log2(self.count))) for x in range (0,multiplier_delay)]
-        SineUpdateEnable = [Signal(1) for x in range (0,multiplier_delay)]
-        
-        # Update routine
+
+        ##################
+        # Update routine #
+        ##################
         # For non-sine:
-        #   - Store PhaseAccumulator on DataOut if requested, as:
-        #
-        #     Direction   0  1
-        #     Ramp:       +  +
-        #     Triangle:   +  -
-        #     Square:     0  1
         #   - Add PhaseIncrement to PhaseAccumulator
         #     - If triangle, add PhaseIncrement<<1 instead
         #   - If triangle, set Direction to PhaseAccumulator overflow
-        #   - Add PhaseIncrement to PhaseAccumulator
-        # For sine:
-        #   - Set sin=0 cos=1; cos=-1 for Direction=1
-        # Updating has a deterministic time cost; don't poke it rapidly
+        # Updating has a deterministic time cost; poke it exactly once
+        # between generating a single sample on all tone generators.
         with m.If(self.Update):
             m.d.sync += [
                     self.Updating.eq(1)
@@ -86,10 +73,10 @@ class LFO(Elaboratable):
             m.d.sync += self.Updating.eq(self.Updating << 1)
             
             # Decode Waveform
-            ramp = (self.Waveform[x] == 0)
-            square = (self.Waveform[x] == 1)
-            triangle = (self.Waveform[x] == 2)
-            sine = (self.Waveform[x] == 3)
+            ramp = _is_ramp(self.Waveform[x])
+            square = _is_square(self.Waveform[x])
+            triangle = _is_triangle(self.Waveform[x])
+            sine = _is_sine(self.Waveform[x])
             PA = Signal(17)
             OutputPhase = Signal(16)
             NewDirection = Signal(1)
@@ -110,9 +97,21 @@ class LFO(Elaboratable):
                 self.PhaseAccumulator[x].eq(PA[0:15]),
                 self.Direction.eq(NewDirection)
             ]
-            ##########################
-            # Update sine oscillator #
-            ##########################
+
+        ##########################
+        # Update sine oscillator #
+        ##########################
+        # The sine oscillator is much simpler:  it's a resonating
+        # state variable filter.
+
+        # Data for sine and cosine update, the index of the register to
+        # update, and whether to update.  For pipelining updates.
+        SineUpdate = [Signal(16) for x in range(0,multiplier_delay)]
+        CosineUpdate = [Signal(16) for x in range(0,multiplier_delay)]
+        SineUpdateIndex = [Signal(ceil(log2(self.count))) for x in range (0,multiplier_delay)]
+        SineUpdateEnable = [Signal(1) for x in range (0,multiplier_delay)]
+
+        with m.If(any(self.Updating)):
             # Put the multiplication, index, and enable in the pipeline
             m.d.sync += [
                 SineUpdate[0].eq(CosineDelay[x] * PhaseIncrement[x]),
@@ -120,7 +119,19 @@ class LFO(Elaboratable):
                 SineUpdateIndex[0].eq(x),
                 SineUpdateEnable[0].eq(1)
             ]
-        
+        with m.Else():
+            # When not updating, we need to clear the sine oscillator
+            # update pipeline or it will continuously carry out the
+            # final addition.
+            #
+            # Only the enable signal matters, leave the rest alone.
+            m.d.sync += [
+                #SineUpdate[0].eq(0),
+                #CosineUpdate[0].eq(0),
+                #SineUpdateIndex[0].eq(0),
+                SineUpdateEnable[0].eq(0)
+            ]
+
         # Delay the multiplication a number of cycles for the
         # synthesizer to pipeline the multiplier
         for i in range(1,multiplier_delay):
@@ -140,9 +151,42 @@ class LFO(Elaboratable):
                 SineDelay[idx].eq(SineUpdate[i] + SineDelay[idx]),
                 CosineDelay[idx].eq(CosineUpdate[i] + CosineDelay[idx])
             ]
-        # Calculate output phase.  If Direction = 1, flip the waveform
-        #m.d.comb += OutputPhase.eq((PA[0:15] ^ self.Direction.replicate(16))
-        #                                 + self.Direction)
-                
-                
-        
+
+        #######
+        # I/O #
+        #######
+        # FIXME:  Deuglify these long lines
+        # Always put the waveform for the current address on DataOut
+        #   - Store PhaseAccumulator on DataOut, as:
+        #     Direction   0   1
+        #     Ramp:       +   +
+        #     Triangle:   +   -
+        #     Square:     MSB ~MSB
+        with m.Switch(self.Waveform[self.Address]):
+            # Sine
+            with m.Case(3):
+                m.d.sync += self.SineDelay[self.Address]
+            # Square, take the MSB, XOR with direction, and shift to
+            # MSB.  Direction inverts duty cycle.
+            with m.Case(1):
+                m.d.sync += ((self.PhaseAccumulator[self.Address][15] ^ self.Direction[Address]) << 15)
+            # Ramps and triangles invert if Direction is 1; triangles
+            # invert Direction when they overflow, ramps can slope up
+            # or down
+            with m.Case():
+                m.d.sync += ((PhaseAccumulator[self.Address] ^ self.Direction[Address].replicate(16)) + self.direction)
+        # TODO:  Configuration when WriteEnabled
+        #   - Set sin=0 cos=1; cos=-1 for Direction=1
+        return m
+
+    def _is_ramp(self, signal: Signal(2)):
+        return (signal == 0)
+
+    def _is_square(self, signal: Signal(2)):
+        return (signal == 1)
+
+    def _is_triangle(self, signal: Signal(2)):
+        return (signal == 2)
+
+    def _is_sine(self, signal: Signal(2)):
+        return (signal == 3)
