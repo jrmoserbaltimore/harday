@@ -221,7 +221,7 @@ class LFO(Elaboratable):
                         # If we're setting Direction, then use the
                         # incoming value; else use the registered value
                         with m.Switch(mux(self.WriteMask[1], self.DataIn[1],
-                                          self.Direction[self.Address]):
+                                          self.Direction[self.Address])):
                             with m.Case(0):
                                 m.d.sync += [
                                     self.SineDelay[self.Address].eq(0),
