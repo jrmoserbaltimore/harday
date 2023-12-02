@@ -1,7 +1,27 @@
 from amaranth import *
 from amaranth.lib.coding import *
 from numpy import log2, ceil
+
 # low-frequency oscillator
+#
+# The LFO produces an output between -1 and 1; however, it tracks phase
+# internally normalized to [0,tau), where PhaseAccumulator rolls over
+# at 1, unsigned.  Calculating the output is slightly involved:
+#
+# Ramps:
+#   Subtract 0.5 from the PhaseAccumulator and multiplying by 2.
+#
+# Square:
+#   The MSB indicates 1 or -1.
+#
+# Triangle:
+#   Calculate a ramp.  Multiply the ramp by -1 if Direction=1.
+#
+# Sine is handled completely differently.
+#
+# FIXME:  correct the outputs as per above.  This requires
+# figuring out how the chip will handle data internally (i.e.
+# integer [0,2^n), fixed point?)
 
 class LFO(Elaboratable):
     """LFO
