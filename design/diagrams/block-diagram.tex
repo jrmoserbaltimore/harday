@@ -10,36 +10,23 @@
     \footnotesize
     \matrix[draw, column sep=0.5cm, row sep=0.5cm, nodes=draw, fill=SkyBlue] (Tone Generator)
     {
-    & \node[DPW] (DPW2) {DPW2\\Polynomial};
-      & \node[symbol node, circle, font={\Huge}] (DPW2 Sum) {$\oplus$};
-      & \node[differencer] (DPW2 Differentiator) {Differentiator};
-      & \node[symbol node,circle, font={\Huge}] (DPW2 Scale) {$\otimes$}; \\
-      		\node (registers) {Control\\Registers};
+    \node (registers) {Control\\Registers};
       & \node[minimum height=1cm, fill=Peach!50] (accumulator) {Phase\\Accumulators};
       & \node[draw=none, outer sep=0, minimum width=0, fill=none] (Tone LFO) {from\\LFO};
-      & &\node[symbol node, circle, font={\Huge}] (Tone Sum) {$\oplus$}; \\
+      & & \\
      & \node[DPW] (DPW4) {DPW4\\Polynomial};
        & \node[symbol node, circle, font={\Huge}] (DPW4 Sum) {$\oplus$};
        & \node[differencer] (DPW4 Differentiator) {Differentiator};
        & \node[symbol node, circle, font={\Huge}] (DPW4 Scale) {$\otimes$}; \\
     };
-    \draw[straight arrow] (accumulator.north) -- (DPW2.south);
     \draw[straight arrow] (accumulator.south) -- (DPW4.north);
-    %\draw[straight arrow] (registers.north) |- (DPW2.west);
-    %\draw[straight arrow] (registers.south) |- (DPW4.west);
     \draw[straight arrow] (registers.east) -- (accumulator.west);
     \draw[straight arrow] (Tone LFO.west) -- (accumulator.east);
 
-    \draw[straight arrow] (DPW2.east) -- (DPW2 Sum.west);
-    \draw[straight arrow] (DPW2.east) ++(0,0.75cm) -| (DPW2 Sum.north);
     \draw[straight arrow] (DPW4.east) -- (DPW4 Sum.west);
     \draw[straight arrow] (DPW4.east) ++(0,-0.75cm) -| (DPW4 Sum.south);
-    \draw[straight arrow] (DPW2 Sum.east) -- (DPW2 Differentiator.west);
     \draw[straight arrow] (DPW4 Sum.east) -- (DPW4 Differentiator.west);
-    \draw[straight arrow] (DPW2 Differentiator.east) -- (DPW2 Scale.west);
     \draw[straight arrow] (DPW4 Differentiator.east) -- (DPW4 Scale.west);
-    \draw[straight arrow] (DPW2 Scale.south) -- (Tone Sum.north);
-    \draw[straight arrow] (DPW4 Scale.north) -- (Tone Sum.south);
 
     %%% LFO and noise generator
 
@@ -60,7 +47,7 @@
     \node[symbol node, circle, font={\Huge}, anchor=center] (Noise Sum)
       at ($(Tone Generator.south east) + (1cm,-0.5cm)$){$\oplus$};
     \draw[straight arrow] (Noise Shifter.north) |- (Noise Sum.west);
-    \draw[straight arrow] (Tone Sum.east) -| (Noise Sum.north);
+    \draw[straight arrow] (DPW4 Scale.east) -| (Noise Sum.north);
 
     \node[symbol node, circle, font={\Huge}, anchor=center] (Envelope Multiplier)
     at (Noise Sum|-Envelope Mask) {$\otimes$};
