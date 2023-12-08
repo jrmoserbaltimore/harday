@@ -138,17 +138,22 @@ class LFO(Elaboratable):
                 SineUpdate[0].eq(CosineDelay[x] * PhaseIncrement[x]),
                 CosineUpdate[0].eq(CosineDelay[x] * -PhaseIncrement[x]),
                 SineUpdateIndex[0].eq(x),
-                SineUpdateEnable[0].eq(~(self.WFDRBuffer[x][0] & self.WFDRMask[x][0]))
+                SineUpdateEnable[0].eq(~_is_resetting(x))
             ]
             # Also execute the WFDR buffer.
-            m.d.sync += self.Waveform[x].eq(
+            m.d.sync += [
+                self.Waveform[x].eq(
                     (self.Waveform[x] & ~self.WFDRMask[x][3:2])
                     | (self.WFDRBuffer[x][3:2] & self.WFDRMask[x][3:2])
-                )
+                ),
+                # Clear the mask so these commands won't be executed
+                # again next update
+                self.WFDRMask[x].eq(0)
+            ]
             with m.If(self.WFDRMask[x][1]):
                 m.d.sync += self.Direction[x].eq(self.WFDRBuffer[x][1])
             # Reset signal
-            with m.if(self.WFDRMask[x][0] & self.WFDRBuffer[x][0]):
+            with m.if(_is_resetting(x)):
                 m.d.sync += self.PhaseAccumulator[x].eq(0)
                 # Clear the sine wave.  Move tau/2 forward if
                 # direction is 1 (i.e. reverse sine).
@@ -252,3 +257,6 @@ class LFO(Elaboratable):
 
     def _is_sine(self, signal: Signal(2)):
         return (signal == 3)
+    
+    def _is_resetting(self, index: int):
+        return (self.WFDRBuffer[index][0] & self.WFDRMask[index][0])
