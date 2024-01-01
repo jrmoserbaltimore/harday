@@ -1,0 +1,100 @@
+% vim: sw=4 ts=4 et
+
+\begin{tikzpicture}[
+        every node/.append style={align=center, minimum width=2cm, minimum height=2cm,fill=white},
+        straight arrow/.style={-{Latex[length=2mm]}},
+        small node/.append style={minimum width = 0.0cm, minimum height = 0.0cm},
+        symbol node/.append style={small node, inner sep=-0.1cm, outer sep=0cm, align=center, draw=none},
+        DPW/.append style={fill=Emerald!50},
+        accumulator/.append style={minimum height=1cm,fill=Peach!50},
+        differencer/.append style={accumulator,fill=Red!45},
+        register/.append style={accumulator, fill=Yellow!35},
+        twoonedemux/.append style={muxdemux,muxdemux def={Lh=1.5,Rh=2,w=1,NL=1,NR=2,NB=1}, muxdemux label={R1=0, R2=1}},
+        twoonedemux 2/.append style={muxdemux,muxdemux def={Lh=1.5,Rh=2,w=1,NL=1,NR=2,NB=0,NT=1}, muxdemux label={R1=0, R2=1}}
+    ]
+    \footnotesize
+    \matrix[draw, column sep=0.5cm, row sep=0.5cm, nodes=draw, fill=SkyBlue] (Tone Generator)
+    {
+        &&&\node[draw, small node] (DPW2 Delay 0) {$z^{-1}$};
+        &&& \node[draw, small node] (DPW2 Scale Factor) {$sf$};
+        &&&\\
+        \node[small node, draw] (x) {$x$};
+        & \node[symbol node, circle, font={\Huge}] (Xsquare) {$\otimes$};
+        && \node[symbol node, circle, font={\Huge}] (DPW2 Diff 0) {$\oplus$};
+        &&& \node[symbol node, circle, font={\Huge}] (DPW2 Scale) {$\otimes$};
+        &\node[draw, minimum width=0, minimum height=0] (DPW2 Delay Output) {$z^{-1}$};
+        & \node[symbol node, circle, font={\Huge}] (DPW2 Mix) {$\otimes$};
+        &\\
+        && \node[draw, small node, font={\small}] (DPW4 Shift Xsquare) {<<1};
+        & \node[draw, small node] (DPW4 Delay 0) {$z^{-1}$};
+        & \node[draw, small node] (DPW4 Delay 1) {$z^{-1}$};
+        & \node[draw, small node] (DPW4 Delay 2) {$z^{-1}$};
+        & \node[draw, small node] (DPW4 Scale Factor) {$sf$};
+        & \node[accumulator] (Mix Balancer) {Mix Balancer};
+        && \node[symbol node, circle, font={\Huge}] (Output Mix) {$\oplus$};
+        \\
+        & \node[symbol node, circle, font={\Huge}] (Xfourth) {$\otimes$};
+        & \node[symbol node, circle, font={\Huge}] (DPW4 Sub 2Xsquare) {$\oplus$};
+        & \node[symbol node, circle, font={\Huge}] (DPW4 Diff 0) {$\oplus$};
+        & \node[symbol node, circle, font={\Huge}] (DPW4 Diff 1) {$\oplus$};
+        & \node[symbol node, circle, font={\Huge}] (DPW4 Diff 2) {$\oplus$};
+        & \node[symbol node, circle, font={\Huge}] (DPW4 Scale) {$\otimes$};
+        && \node[symbol node, circle, font={\Huge}] (DPW4 Mix) {$\otimes$};
+        &\\ 
+    };
+    
+
+    % Square x
+    \draw[straight arrow] (x) -- (Xsquare.west);
+    \draw[straight arrow] (x) -- ++(0,1cm) -| (Xsquare.north);
+    
+    % Get x^4
+    \draw[straight arrow] (Xsquare.east) -| ($(Xsquare) + (5mm, -5mm)$) -| (Xfourth.north);
+    \draw[straight arrow] (Xsquare.east) -| ($(Xsquare) + (5mm, -5mm)$) -| ($(Xfourth.west) + (-5mm,0)$) -- (Xfourth.west);
+    
+    % x^2 << 1
+    \draw[straight arrow] (Xsquare.east) -| ($(Xsquare) + (5mm, -5mm)$) -| (DPW4 Shift Xsquare.north);
+    
+    % DPW2 differencing
+    \node[draw, small node] (DPW2 Delay 0 Minus) at ($(DPW2 Diff 0) + (-7mm,5mm)$) {-};
+    \draw[straight arrow] (Xsquare.east) -| (DPW2 Delay 0 Minus.south);
+    \draw[straight arrow] (DPW2 Delay 0 Minus.north) |- (DPW2 Delay 0.west);
+    \draw[straight arrow] (Xsquare.east) -- (DPW2 Diff 0.west);
+    \draw[straight arrow] (DPW2 Delay 0.south) -- (DPW2 Diff 0.north);
+    
+    % DPW2 scaling and output
+    \draw[straight arrow] (DPW2 Diff 0.east) -- (DPW2 Scale.west);
+    \draw[straight arrow] (DPW2 Scale Factor.south) -- (DPW2 Scale.north);
+    \draw[straight arrow] (DPW2 Scale.east) -- (DPW2 Delay Output.west);
+    
+    % DPW4 x^4 - 2x^2
+    \draw[straight arrow] (Xfourth.east) -- (DPW4 Sub 2Xsquare.west);
+    \draw[straight arrow] (DPW4 Shift Xsquare.south) -- (DPW4 Sub 2Xsquare.north);
+
+	% DPW4 differencing
+	% Subtraction for DPW4 z^-1
+	\foreach \x in {0, 1, 2} {
+		\draw[straight arrow] (DPW4 Delay \x.south) -- (DPW4 Diff \x.north);
+		\node[draw, small node] (DPW4 Delay \x\space Minus) at ($(DPW4 Diff \x) + (-7mm,5mm)$) {-};
+		\draw[straight arrow] (DPW4 Delay \x\space Minus.north) |- (DPW4 Delay \x.west);
+	}
+	\draw[straight arrow] (DPW4 Sub 2Xsquare.east) -| (DPW4 Delay 0 Minus.south);
+	\draw[straight arrow] (DPW4 Diff 0.east) -| (DPW4 Delay 1 Minus.south);
+	\draw[straight arrow] (DPW4 Diff 1.east) -| (DPW4 Delay 2 Minus.south);
+	\draw[straight arrow] (DPW4 Sub 2Xsquare.east) -- (DPW4 Diff 0.west);
+	\draw[straight arrow] (DPW4 Diff 0.east) -- (DPW4 Diff 1.west);
+	\draw[straight arrow] (DPW4 Diff 1.east) -- (DPW4 Diff 2.west);
+
+	% DPW4 scaling
+	\draw[straight arrow] (DPW4 Diff 2.east) -- (DPW4 Scale.west);
+	\draw[straight arrow] (DPW4 Scale Factor.south) -- (DPW4 Scale.north);
+	
+	% Mixing
+	\draw[straight arrow] (DPW2 Delay Output.east) -- (DPW2 Mix.west);
+	\draw[straight arrow] (DPW2 Mix.east) -| (Output Mix.north);
+	\draw[straight arrow] (DPW4 Scale.east) -- (DPW4 Mix.west);
+	\draw[straight arrow] (DPW4 Mix.east) -| (Output Mix.south);
+	\draw[straight arrow] (Mix Balancer.east) -| (DPW2 Mix.south);
+	\draw[straight arrow] (Mix Balancer.east) -| (DPW4 Mix.north);
+
+\end{tikzpicture}
