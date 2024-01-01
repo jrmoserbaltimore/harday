@@ -10,34 +10,32 @@
     \footnotesize
     \matrix[draw, column sep=0.5cm, row sep=0.5cm, nodes=draw, fill=SkyBlue] (Tone Generator)
     {
-    \node (registers) {Control\\Registers};
-      & \node[minimum height=1cm, fill=Peach!50] (accumulator) {Phase\\Accumulators};
-      & \node[draw=none, outer sep=0, minimum width=0, fill=none] (Tone LFO) {from\\LFO};
-      & & \\
-     & \node[DPW] (DPW4) {DPW4\\Polynomial};
-       & \node[symbol node, circle, font={\Huge}] (DPW4 Sum) {$\oplus$};
-       & \node[differencer] (DPW4 Differentiator) {Differentiator};
-       & \node[symbol node, circle, font={\Huge}] (DPW4 Scale) {$\otimes$}; \\
+       \node[fill=Black, text=white] (Wavetable) {\textbf{Wavetable}};
+       & \node[DPW] (Interpolator) {Interpolator};\\
+       \node (registers) {Control\\Registers};
+       & \node[minimum height=1cm, fill=Peach!50] (Accumulator) {Phase\\Accumulators};
+       \\
     };
-    \draw[straight arrow] (accumulator.south) -- (DPW4.north);
-    \draw[straight arrow] (registers.east) -- (accumulator.west);
-    \draw[straight arrow] (Tone LFO.west) -- (accumulator.east);
-
-    \draw[straight arrow] (DPW4.east) -- (DPW4 Sum.west);
-    \draw[straight arrow] (DPW4.east) ++(0,-0.75cm) -| (DPW4 Sum.south);
-    \draw[straight arrow] (DPW4 Sum.east) -- (DPW4 Differentiator.west);
-    \draw[straight arrow] (DPW4 Differentiator.east) -- (DPW4 Scale.west);
+    \draw[straight arrow] (Accumulator.north) -- (Interpolator.south);
+    \draw[straight arrow] (registers.east) -- (Accumulator.west);
+    \draw[straight arrow] (Wavetable.east) -- (Interpolator.west);
 
     %%% LFO and noise generator
 
-    \matrix[column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=north west]
-    (LFO Section) at ($(Tone Generator.south west) + (0, -1cm)$)
+    \matrix[column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=south west]
+    (Noise Section) at ($(Tone Generator.south east) + (5mm, 0)$)
     {
-        \node(Noise Shifter) {Noise Shifter}; & \node[fill=Black,text=white] (LFO) {\textbf{LFO}}; \\
+        \node(Noise Shifter) {Noise Shifter};\\
     };
 
-    \matrix[draw, column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=north east, fill=Green]
-    (Envelope Generator Section) at ($(Tone Generator.south east) + (0, -1cm)$)
+	\matrix[column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=north west]
+	(LFO Section) at ($(registers.south east) + (5mm, -1cm)$)
+	{
+	  \node[fill=Black,text=white] (LFO) {\textbf{LFO}}; \\
+	};
+	
+    \matrix[draw, column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=north west, fill=Green]
+    (Envelope Generator Section) at ($(LFO Section.north east) + (5mm, 0)$)
     {
         \node (Envelope Counter) {Envelope\\Counter}; & \node(Envelope Mask) {Mask\\Generator}; \\
     };
@@ -45,20 +43,21 @@
     \draw[straight arrow] (Envelope Counter.east) -- (Envelope Mask.west);
 
     \node[symbol node, circle, font={\Huge}, anchor=center] (Noise Sum)
-      at ($(Tone Generator.south east) + (1cm,-0.5cm)$){$\oplus$};
-    \draw[straight arrow] (Noise Shifter.north) |- (Noise Sum.west);
-    \draw[straight arrow] (DPW4 Scale.east) -| (Noise Sum.north);
+      at ($(Envelope Generator Section.east|-Noise Shifter.east) + (1cm,0)$){$\oplus$};
+    \draw[straight arrow] (Noise Shifter.east) -- (Noise Sum.west);
+    \draw[straight arrow] (Interpolator.east) -| (Noise Sum.north);
 
     \node[symbol node, circle, font={\Huge}, anchor=center] (Envelope Multiplier)
     at (Noise Sum|-Envelope Mask) {$\otimes$};
     \draw[straight arrow] (Noise Sum.south) -- (Envelope Multiplier.north);
     \draw[straight arrow] (Envelope Mask.east) -- (Envelope Multiplier.west);
 
-    \node[draw, anchor=north west, fill=Apricot] (Filter)
-      at ($(LFO Section.south west) + (0, -1cm)$) {State\\Variable\\Filter};
+    \node[draw, anchor=north east, fill=Apricot] (Filter)
+      at ($(LFO Section.south west) + (-5mm, -5mm)$) {State\\Variable\\Filter};
     \node[symbol node, circle, font={\Huge}, anchor=center] (AM Multiplier)
       at (LFO|-Filter) {$\otimes$};
 
+	\draw[straight arrow] (LFO.north) -- (Accumulator.south);
     \draw[straight arrow] (LFO.south) -- (AM Multiplier.north);
     \draw[straight arrow] (Envelope Multiplier.south) |- (AM Multiplier.east);
     \draw[straight arrow] (AM Multiplier.west) -- (Filter.east);
