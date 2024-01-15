@@ -26,48 +26,50 @@ from numpy import log2, ceil
 class LFO(Elaboratable):
     """LFO
     Produces a low-frequency oscillator with (count) registers.
-    Update:  State machine updates all oscillators
-    Address:  Select the LFO to access.
-    WriteSelect:  Write to PhaseIncrement(0) or others (1).
-       When WriteSelect=1, the lower 4 bits of DataIn
+    update:  State machine updates all oscillators
+    address:  Select the LFO to access.
+    write_select:  Write to phase_increment(0) or others (1).
+       When write_select=1, the lower 4 bits of DataIn
        represent Waveform, Direction, and Reset, from MSB to
        LSB.
-    WriteMask:  When WriteSelect=1, the new values written to
+    write_mask:  When write_select=1, the new values written to
        Waveform, Direction, and Reset as WFDR=Signal(4) is
-       (DataIn[3:0] & WriteMask) | (WFDR & ~WriteMask).
+       (data_in[3:0] & write_mask) | (wfdr_buffer & ~write_mask).
     """
     def __init__(self, count: int, multiplier_delay: int = 1):
         assert (count > 0), "count must be greater than zero"
         self.count = count
         self.multiplier_delay = multiplier_delay
-        self.Clk = Signal(1)
-        # When Update becomes high, an internal state machine
+        self.clk = Signal(1)
+        # When update becomes high, an internal state machine
         # updates each counter in sequence.
-        self.Update = Signal(1)
-        self.Address = Signal(ceil(log2(count)))
-        self.DataOut = Signal(16)
-        self.DataIn = Signal(16)
-        self.WriteEnable = Signal(1)
-        self.WriteSelect = Signal(1)
-        self.WriteMask = Signal(4)
+        self.update = Signal(1)
+        self.address = Signal(ceil(log2(count)))
+        self.data_out = Signal(16)
+        self.data_in = Signal(16)
+        self.write_enable = Signal(1)
+        self.write_select = Signal(1)
+        self.write_mask = Signal(4)
         # Create register file
-        self.PhaseIncrement = []
-        self.PhaseAccumulator = []
-        self.Waveform = []
-        self.Direction = []
-        self.SineDelay = []
-        self.CosineDelay = []
+        self.phase_increment = []
+        self.phase_accumulator = []
+        self.waveform = []
+        self.direction = []
+        self.sine_delay = []
+        self.cosine_delay = []
+        self.wfdr_buffer = []
+        self.wfdr_mask = []
         for x in range(0,int):
-            self.PhaseIncrement.append(Signal(16))
-            self.PhaseAccumulator.append(Signal(16))
-            self.Waveform.append(Signal(2))
-            self.Direction.append(Signal(1))
-            self.SineDelay.append(Signal(16))
-            self.CosineDelay.append(Signal(16))
-            self.WFDRBuffer.append(Signal(4))
-            self.WFDRMask.append(Signal(4))
+            self.phase_increment.append(Signal(16))
+            self.phase_accumulator.append(Signal(16))
+            self.waveform.append(Signal(2))
+            self.direction.append(Signal(1))
+            self.sine_delay.append(Signal(16))
+            self.cosine_delay.append(Signal(16))
+            self.wfdr_buffer.append(Signal(4))
+            self.wfdr_mask.append(Signal(4))
         # Updating state tracks which oscillator is being updated 
-        self.Updating = Signal(count)
+        self.updating = Signal(count)
 
     def elaborate(self, platform) -> Module:
         m = Module()
@@ -84,46 +86,46 @@ class LFO(Elaboratable):
         
         # Data for sine and cosine update, the index of the register to
         # update, and whether to update.  For pipelining updates.
-        SineUpdate = [Signal(16) for x in range(0,multiplier_delay)]
-        CosineUpdate = [Signal(16) for x in range(0,multiplier_delay)]
-        SineUpdateIndex = [Signal(ceil(log2(self.count))) for x in range (0,multiplier_delay)]
-        SineUpdateEnable = [Signal(1) for x in range (0,multiplier_delay)]
+        sine_update = [Signal(16) for x in range(0,self.multiplier_delay)]
+        cosine_update = [Signal(16) for x in range(0,self.multiplier_delay)]
+        sine_update_index = [Signal(ceil(log2(self.count))) for x in range (0,self.multiplier_delay)]
+        sine_update_enable = [Signal(1) for x in range (0,self.multiplier_delay)]
 
-        with m.If(self.Update):
+        with m.If(self.update):
             m.d.sync += [
-                    self.Updating.eq(1)
+                    self.updating.eq(1)
                 ]
-        with m.If(any(self.Updating)):
+        with m.If(any(self.updating)):
             # Get the index of the oscillator to update
-            x = Signal(ceil(log2(count)))
-            m.d.comb += x.eq(PriorityEncoder(count, self.Updating).o)
+            x = Signal(ceil(log2(self.count)))
+            m.d.comb += x.eq(PriorityEncoder(self.count, self.updating).o)
             # Increment the target oscillator
-            m.d.sync += self.Updating.eq(self.Updating << 1)
+            m.d.sync += self.updating.eq(self.updating << 1)
             
             # Decode Waveform
-            ramp = _is_ramp(self.Waveform[x])
-            square = _is_square(self.Waveform[x])
-            triangle = _is_triangle(self.Waveform[x])
-            sine = _is_sine(self.Waveform[x])
+            ramp = self._is_ramp(self.waveform[x])
+            square = self._is_square(self.waveform[x])
+            triangle = self._is_triangle(self.waveform[x])
+            sine = self._is_sine(self.waveform[x])
             PA = Signal(17)
             OutputPhase = Signal(16)
             NewDirection = Signal(1)
             # Sum to PA in the combinational domain, with the extra bit
             # for overflow
             m.d.comb += [
-                PA.eq(self.PhaseAccumulator[x] +
+                PA.eq(self.phase_accumulator[x] +
                     mux(triangle,
-                        self.PhaseIncrement[x] << 1,
-                        self.PhaseIncrement[x]
+                        self.phase_increment[x] << 1,
+                        self.phase_increment[x]
                     )
                 ),
                 # Flip on overflow if triangle
-                NewDirection.eq(self.Direction ^ (PA[16] & triangle))
+                NewDirection.eq(self.direction ^ (PA[16] & triangle))
             ]
             m.d.sync += [
                 # Store new sum in phase accumulator
-                self.PhaseAccumulator[x].eq(PA[0:15]),
-                self.Direction.eq(NewDirection)
+                self.phase_accumulator[x].eq(PA[0:15]),
+                self.direction.eq(NewDirection)
             ]
 
             ##########################
@@ -135,38 +137,38 @@ class LFO(Elaboratable):
             # Put the multiplication, index, and enable in the pipeline.
             # Does not cause an update if reset signal has been sent
             m.d.sync += [
-                SineUpdate[0].eq(CosineDelay[x] * PhaseIncrement[x]),
-                CosineUpdate[0].eq(CosineDelay[x] * -PhaseIncrement[x]),
-                SineUpdateIndex[0].eq(x),
-                SineUpdateEnable[0].eq(~_is_resetting(x))
+                sine_update[0].eq(self.cosine_delay[x] * self.phase_increment[x]),
+                cosine_update[0].eq(self.cosine_delay[x] * -self.phase_increment[x]),
+                sine_update_index[0].eq(x),
+                sine_update_enable[0].eq(~self._is_resetting(x))
             ]
             # Also execute the WFDR buffer.
             m.d.sync += [
-                self.Waveform[x].eq(
-                    (self.Waveform[x] & ~self.WFDRMask[x][3:2])
-                    | (self.WFDRBuffer[x][3:2] & self.WFDRMask[x][3:2])
+                self.waveform[x].eq(
+                    (self.waveform[x] & ~self.wfdr_mask[x][3:2])
+                    | (self.wfdr_buffer[x][3:2] & self.wfdr_mask[x][3:2])
                 ),
                 # Clear the mask so these commands won't be executed
                 # again next update
-                self.WFDRMask[x].eq(0)
+                self.wfdr_mask[x].eq(0)
             ]
-            with m.If(self.WFDRMask[x][1]):
-                m.d.sync += self.Direction[x].eq(self.WFDRBuffer[x][1])
+            with m.If(self.wfdr_mask[x][1]):
+                m.d.sync += self.direction[x].eq(self.wfdr_buffer[x][1])
             # Reset signal
-            with m.if(_is_resetting(x)):
-                m.d.sync += self.PhaseAccumulator[x].eq(0)
+            with m.If(self._is_resetting(x)):
+                m.d.sync += self.phase_accumulator[x].eq(0)
                 # Clear the sine wave.  Move tau/2 forward if
                 # direction is 1 (i.e. reverse sine).
                 #
                 # If we're setting Direction, then use the
                 # incoming value; else use the registered value
-                m.d.sync += self.SineDelay[x].eq(0)
-                with m.Switch(mux(self.WFDRMask[x][1], self.WFDRBuffer[x][1],
-                                  self.Direction[x])):
+                m.d.sync += self.sine_delay[x].eq(0)
+                with m.Switch(mux(self.wfdr_mask[x][1], self.wfdr_buffer[x][1],
+                                  self.direction[x])):
                     with m.Case(0):
-                        m.d.sync += self.CosineDelay[x].eq(1)
+                        m.d.sync += self.cosine_delay[x].eq(1)
                     with m.Case(1):
-                        m.d.sync += self.CosineDelay[x].eq(-1)
+                        m.d.sync += self.cosine_delay[x].eq(-1)
         with m.Else():
             # When not updating, we need to clear the sine oscillator
             # update pipeline or it will continuously carry out the
@@ -177,27 +179,27 @@ class LFO(Elaboratable):
                 #SineUpdate[0].eq(0),
                 #CosineUpdate[0].eq(0),
                 #SineUpdateIndex[0].eq(0),
-                SineUpdateEnable[0].eq(0)
+                sine_update_enable[0].eq(0)
             ]
 
         # Delay the multiplication a number of cycles for the
         # synthesizer to pipeline the multiplier
-        for i in range(1,multiplier_delay):
+        for i in range(1,self.multiplier_delay):
             m.d.sync += [
-                SineUpdate[i].eq(SineUpdate[i-1]),
-                CosineUpdate[i].eq(CosineUpdate[i-1]),
-                SineUpdateIndex[i].eq(SineUpdateIndex[i-1]),
-                SineUpdateEnable[i].eq(SineUpdateEnable[i-1])
+                sine_update[i].eq(sine_update[i-1]),
+                cosine_update[i].eq(cosine_update[i-1]),
+                sine_update_index[i].eq(sine_update_index[i-1]),
+                sine_update_enable[i].eq(sine_update_enable[i-1])
             ]
         
         # If an update is at the end of the pipeline, add the results
         # to z^-1 for sine and cosine
-        with m.If(SineUpdateEnable[multiplier_delay-1]):
-            i = multiplier_delay-1
-            idx = (SineUpdateIndex[i])
+        with m.If(sine_update_enable[self.multiplier_delay-1]):
+            i = self.multiplier_delay-1
+            idx = (sine_update_index[i])
             m.d.sync += [
-                SineDelay[idx].eq(SineUpdate[i] + SineDelay[idx]),
-                CosineDelay[idx].eq(CosineUpdate[i] + CosineDelay[idx])
+                self.sine_delay[idx].eq(sine_update[i] + self.sine_delay[idx]),
+                self.cosine_delay[idx].eq(cosine_update[i] + self.cosine_dealy[idx])
             ]
 
         #######
@@ -210,37 +212,37 @@ class LFO(Elaboratable):
         #     Ramp:       +   +
         #     Triangle:   +   -
         #     Square:     MSB ~MSB
-        with m.If(_is_sine(self.Waveform[self.Address])):
-            m.d.sync += self.DataOut.eq(self.SineDelay[self.Address])
-        with m.Elif(_is_square(self.Waveform[self.Address])):
+        with m.If(self._is_sine(self.waveform[self.address])):
+            m.d.sync += self.data_out.eq(self.sine_delay[self.address])
+        with m.Elif(self._is_square(self.waveform[self.address])):
             # Square, take the MSB, XOR with direction, and shift to
             # MSB.  Direction inverts duty cycle.
-            m.d.sync += self.DataOut.eq(
-                        (self.PhaseAccumulator[self.Address][15] ^ self.Direction[Address]) << 15
+            m.d.sync += self.data_out.eq(
+                        (self.phase_accumulator[self.address][15] ^ self.direction[self.address]) << 15
                     )
         with m.Else():
             # Ramps and triangles invert if Direction is 1; triangles
             # invert Direction when they overflow, ramps can slope up
             # or down
-            m.d.sync += self.DataOut.eq(
-                            (self.PhaseAccumulator[self.Address] ^ self.Direction[Address].replicate(16))
-                            + self.Direction[Address]
+            m.d.sync += self.data_out.eq(
+                            (self.phase_accumulator[self.address] ^ self.direction[self.address].replicate(16))
+                            + self.direction[self.address]
                         )
-        with m.If(self.WriteEnable):
+        with m.If(self.write_enable):
             # Select either the PhaseIncrement register or the
             # Waveform, Direction, and Reset command
-            with m.Switch(self.WriteSelect):
+            with m.Switch(self.write_select):
                 with m.Case(0):
-                    m.d.sync += self.PhaseIncrement[self.Address].eq(self.DataIn)
+                    m.d.sync += self.phase_increment[self.address].eq(self.data_in)
                 # Buffer WFDR for application during update
                 with m.Case(1):
                     m.d.sync += [
-                        self.WFDRBuffer[self.Address].eq(
-                            self.WFDRBuffer[self.Address]
-                            | (self.DataIn[3:0] & self.WriteMask)
+                        self.wfdr_buffer[self.address].eq(
+                            self.wfdr_buffer[self.address]
+                            | (self.data_in[3:0] & self.write_mask)
                         ),
-                        self.WFDRMask[self.Address].eq(
-                            self.WFDRMask[self.Address] | self.WriteMask
+                        self.wfdr_mask[self.address].eq(
+                            self.wfdr_mask[self.address] | self.write_mask
                         )
                     ]
 
@@ -259,4 +261,4 @@ class LFO(Elaboratable):
         return (signal == 3)
     
     def _is_resetting(self, index: int):
-        return (self.WFDRBuffer[index][0] & self.WFDRMask[index][0])
+        return (self.wfdr_buffer[index][0] & self.wfdr_mask[index][0])
