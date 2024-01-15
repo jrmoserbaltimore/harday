@@ -72,9 +72,9 @@ The interpolator generates two waveforms per each of three channels in the case 
 %  15 (high guess) for SVF
 %  2 for bit crusher with QE remediation
 %  ??? final output filter
-% A total 18 cycles before sending through the final output filter; for 16 parts with
-% 48 total channels, this gives 66 cycles, a minimum 6MHz.  With 8 I/Os to configure
-% one full channel, that requires 74 total cycles per channel or 7MHz; a full
+% A total 28 cycles before sending through the final output filter; for 16 parts with
+% 48 total channels, this gives 76 cycles, a minimum 6MHz.  With 8 I/Os to configure
+% one full channel, that requires 84 total cycles per channel or 8MHz; a full
 % reconfigure would demand a 43MHz core.  A 9.216MHz (96kHz*96) crystal gives well
 % enough time to complete all tasks.  24.576MHz (96kHz*256) is another possibility for
 % a more complex chip incorporating this PSG as a feature.
@@ -98,3 +98,30 @@ Output will have a LFO-controlled bitcrusher masking the lower bits of each samp
 
 \section{Output Filter}
 
+\section{Control Unit}
+
+The control unit connects all of the parts together and coordinates work.
+
+The control unit gets information from the control bus.  This can be an AY-3-8930 pinout interface or another control interface.  The control bus provides the clock, configuration I/O, and sound output.
+
+The control unit also manages modulation by the LFO.  It iterates through each channel and copies the value register for the LFO referenced by the tone generator into the tone generator's vibrato register, then copies the LFO referenced by the envelope generator into the envelope generator's amplitude modulation register.
+
+The control unit sums the outputs of the tone generator and noise generator, then fetches the gain value from the envelope generator and multiplies it by this sum.
+
+The control unit sends the gain-adjusted channel data to the state variable filter.
+
+The control unit runs the filtered channel data through the pre-filter bitcrusher, then through the output filter's first pass, through the post-filter bitcrusher, then through the output filter's second pass.  This requires two states for the output filter; and either filter may be bypassed.
+
+Several things occur in parallel:
+
+\begin{itemize}
+	\item Tone generation, noise, final gain calculation, and LFO computation all occur at the same time
+	\item LFO reconfiguration is allowed immediately after the last LFO calculation
+	\item Construction of the gain-adjusted signal is pipelined
+	\item Envelope reconfiguration is allowed immediately after the last channel's gain is applied
+	\item State variable filter, bitcrusher, and output filter are all pipelined, and are a continuation of the pipeline constructing the gain-adjusted signal 
+\end{itemize}
+
+This allows the production of 96kHz output with a clock as low as 3MHz for 3 channels, without configuration time; and as low as 8MHz for 48 channels with time to configure one full channel each sample (0.5ms to configure all 48, although precise programming timing can reduce this to under 0.1ms).
+
+The recommended clock rates are 9.216MHz (96kHz*96) or 24.576MHz (96kHz*256).  A high-speed serial programming interface allows alternate configuration, fully configuring the tone generator, envelope generator, and SVF for a selected channel in one clock cycle, giving complete control over each individual's sample generation even at the sub-10MHz core clock rate.

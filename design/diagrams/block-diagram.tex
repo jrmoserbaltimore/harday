@@ -23,21 +23,22 @@
     %%% LFO and noise generator
 
     \matrix[column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=south west]
-    (Noise Section) at ($(Tone Generator.south east) + (5mm, 0)$)
+    (Noise Section) at ($(Tone Generator.south east) + (2.55mm, 0)$)
     {
         \node(Noise Shifter) {Noise Shifter};\\
     };
 
 	\matrix[column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=north west]
-	(LFO Section) at ($(registers.south east) + (5mm, -1cm)$)
+	(LFO Section) at ($(registers.south west) + (0mm, -5mm)$)
 	{
 	  \node[fill=Black,text=white] (LFO) {\textbf{LFO}}; \\
 	};
 	
     \matrix[draw, column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=north west, fill=Green]
-    (Envelope Generator Section) at ($(LFO Section.north east) + (5mm, 0)$)
+    (Envelope Generator Section) at ($(LFO Section.north east) + (2.5mm, 0)$)
     {
-        \node (Envelope Counter) {Envelope\\Counter}; & \node(Envelope Mask) {Mask\\Generator}; \\
+        \node (Envelope Counter) {Envelope\\Counter};
+        & \node(Envelope Mask) {Mask\\Generator}; \\
     };
 
     \draw[straight arrow] (Envelope Counter.east) -- (Envelope Mask.west);
@@ -52,15 +53,22 @@
     \draw[straight arrow] (Noise Sum.south) -- (Envelope Multiplier.north);
     \draw[straight arrow] (Envelope Mask.east) -- (Envelope Multiplier.west);
 
-    \node[draw, anchor=north east, fill=Apricot] (Filter)
-      at ($(LFO Section.south west) + (-5mm, -5mm)$) {State\\Variable\\Filter};
-    \node[symbol node, circle, font={\Huge}, anchor=center] (AM Multiplier)
-      at (LFO|-Filter) {$\otimes$};
+	\matrix[column sep=0.5cm, row sep=0.5cm, nodes=draw, anchor=north west]
+	(Output Section) at ($(registers.west|-LFO Section.south) + (0, -5mm)$)
+	{
+      \node[draw, fill=Apricot] (Filter) {State\\Variable\\Filter};
+      & \node[draw, fill=red!50] (Bitcrusher) {Bitcrusher}; 
+      & \node[draw, DPW] (Output Filter) {Output\\Filter};\\
+    };
 
-	\draw[straight arrow] (LFO.north) -- (Accumulator.south);
-    \draw[straight arrow] (LFO.south) -- (AM Multiplier.north);
-    \draw[straight arrow] (Envelope Multiplier.south) |- (AM Multiplier.east);
-    \draw[straight arrow] (AM Multiplier.west) -- (Filter.east);
-    \draw[straight arrow] ($(Filter.east) + (0,-0.5cm)$) -- ++(10cm,0);
+
+	\draw[straight arrow] (LFO.north) -- ++(0,2.5mm) -| (Accumulator.south);
+    \draw[straight arrow] (LFO.east) -- (Envelope Generator Section.west);
+    \draw[straight arrow] (Envelope Multiplier.south)
+        |- ($(Filter.north) + (0,2.5mm)$) -- (Filter.north);
+    \draw[straight arrow] (Filter.east) -- (Bitcrusher.west);
+    \draw[straight arrow] ($(Bitcrusher.east) + (0,5mm)$) -- ($(Output Filter.west) + (0,5mm)$);
+    \draw[straight arrow] ($(Output Filter.west) + (0,-5mm)$) -- ($(Bitcrusher.east) + (0,-5mm)$);
+    \draw[straight arrow] (Bitcrusher.south) |- ++(5cm,-5mm);
 
 \end{tikzpicture}
