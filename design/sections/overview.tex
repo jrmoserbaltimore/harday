@@ -62,6 +62,23 @@ For the triangle waveform, the interpolator bypasses the wavetable and uses the 
 
 The interpolator generates two waveforms per each of three channels in the case of PWM, summing two ramps; and generates two such outputs per channel in the case of the chorus effect.  This requires a total four waveform states per each of three channels, twelve waveforms generated in all.
 
+% Best estimate right now is 7 clock cycles to generate 1 channel tone
+
+% Total should be:
+%  7 to generate 1 channel tone
+%  1 to add the noise (generated during tone gen)
+%  3 to apply envelope and AM (calculated during tone gen, if done within
+%    8 cycles)
+%  15 (high guess) for SVF
+%  2 for bit crusher with QE remediation
+%  ??? final output filter
+% A total 18 cycles before sending through the final output filter; for 16 parts with
+% 48 total channels, this gives 66 cycles, a minimum 6MHz.  With 8 I/Os to configure
+% one full channel, that requires 74 total cycles per channel or 7MHz; a full
+% reconfigure would demand a 43MHz core.  A 9.216MHz (96kHz*96) crystal gives well
+% enough time to complete all tasks.  24.576MHz (96kHz*256) is another possibility for
+% a more complex chip incorporating this PSG as a feature.
+
 \section{Noise Shifter}
 
 The noise shifter works in the same way as the AY-3-8930, with AY-3-8910 mode configuration in compatibility mode.
@@ -70,3 +87,14 @@ The noise shifter works in the same way as the AY-3-8930, with AY-3-8910 mode co
 \section{Envelope Generator}
 
 The envelope generator is identical to the AY-3-8930 EG, except that in enhanced mode it has an 8-bit envelope counter that can be masked to fewer bits.
+
+\section{State Variable Filter}
+
+% TODO:  SVF with Chamberlin or LT architecture
+
+\section{Bitcrusher}
+
+Output will have a LFO-controlled bitcrusher masking the lower bits of each sample to zero.  The bitcrusher will include a quantization error compensation option.
+
+\section{Output Filter}
+
