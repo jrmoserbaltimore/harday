@@ -22,41 +22,77 @@ class PIOInterface:
         self.reset_pin = reset
         self._program_pio()
 
-    # This program uses 3 bits for side set and has a delay of 0-3
-    # 10 clock cycles per iteration, so the program must run at 20MHz
-    # to provide the 2MHz clock the AY-3-8930 uses
-    @rp2.asm_pio(set_init=rp2.PIO.OUT_LOW)
-    def generate_interface(self):
+    @rp2.asm_pio()
+    def run_clock(self):
         wrap_target()
-        label("clock")
+        # Rising edge
+        irq(0)
+        set(pins,1)
 
-        # Set rising edge and wait 4 cycles (5 cycles high)
-        set(pins,1) [3]
-        nop()
-        # Set falling edge and handle data for 5 cycles
-        # Original chip is negative-edge latch based, so the driver
-        # must zero the control pins here.  This also sets up 3/10 of
-        # the chip's clock cycle before the rising edge, so a
-        # synchronous clone should work.
-        set(pins,0) .side(0b00)
-        jmp(not_osre, "handle_output")
-        # Add 4 cycles if not doing output
-        nop() [3]
+        irq(1)
+        set(pins,0)
+
+    # Sets IRQ 2 and waits for it to be 0, then sets pins to out.
+    # Sets IRQ 3 and waits for it to be 0, then sets pins to in.
+    # Clearing 2 when the pins are already out, or 3 when pins are in,
+    # doesn't affect execution flow.
+    @rp2.asm_pio(set_init=rp2.PIO.OUT_LOW)
+    def da_direction(self):
+        wrap_target()
+        mov(osr,invert(null))
+        irq(block, 2)
+        out(pindirs,8)
+        mov(osr,null)
+        irq(block, 3)
+        out(pindirs,8)
         wrap()
 
-        # Set address
-        # 3 clocks
-        label("handle_output")
-        jmp(x_dec, "set_data")
-        out(pins,8) .side(0b11)
-        set(x, 0b1)
-        jmp("handle_clock")
+    # Following IRQ 0:
+    #  - 5 instructions for set address to reach falling edge
+    #  - Same for writing data
+    #  - 3 and then wait for falling edge to read data
+    # Following IRQ 1:
+    #  - 0 instruction and then wait for rising edge for DA
+    #  - 2 instruction and then wait for rising edge for read
+    @rp2.asm_pio()
+    def latched_io:
+        label("finish write")
+        # wait for falling edge, then clear the control pins
+        wait(1, irq, 1) .side(0b00)
 
-        # Set data
-        # 3 clocks
-        label("set_data")
-        out(pins,8) .side(0b10) [1]
-        jmp("handle_clock")
+        label("reenter")
+        # Loop until a rising edge occurs with something in the OSR
+        .wrap_target()
+        wait(1, irq, 0)
+        jmp(not_osre, "handle")
+        wrap()
 
+        # Handle i/o, jump to location given on input.
+        label("handle")
+        out(pc, 5)
 
+        label("set address")
+        # Ensure DA are out pins
+        irq(clear, 2)
+        out(pins, 8) .side(0b11)
+        jmp("finish write")
+
+        label("set data")
+        irq(clear, 2)
+        out(pins, 8) .side(0b10)
+        jmp("finish write")
+
+        label("get data")
+        # Ensure DA are in pins
+        irq(clear, 3) .side(0b01)
+        wait(1, irq, 1)
+        in(pins, 8)
+        jmp("reenter") .side(0b00)
+
+    def _write_address(self, address:int):
+        # FIXME:  Send the address and the 5-bit jump target
+        self.pio_sm.put()
+
+    def _write_register(self, address: int, value: int, page: int = 0):
+        self.pio_sm.put((address & 0xff) | ((value & 0xff) << 8))
 
