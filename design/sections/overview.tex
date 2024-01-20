@@ -38,7 +38,7 @@ The Chamberlin state variable filters digitally model the nonlinearity of many o
 
 These enhanced features require minimal additional circuitry, and would be appropriate for a 1980-era digital sound generator.
 
-Beyond this, a 4-bit read-write register in the last register page acts as a register file selector.  When loaded with a value, it checks if that value is greater than the total register files; if so, it loads the register with the highest register file available.  The Enhanced mode can support up to 16 register files, which act as independent AY-3-8930 Enhanced tone generators, making the register file select analogous to a chip select; however, mode select can only be done on register file zero.  This allows for up to 48 independent channels to be implemented, or as few as only 3 independent channels by not implementing any register files beyond file zero, with a method for software to query the chip's capabilities.
+Beyond this, the address bits from DA7-DA4 act as a register file selector; this is functionally equivalent to their original use as a chip select, but only one set of internal circuitry is used to produce the tones for all files.  The Enhanced mode can support up to 16 register files; however, mode select can only be done on register file zero.  Writing to non-existent register files and then reading the value back will return zeroes.  This allows for up to 48 independent channels to be implemented, or as few as only 3 independent channels by not implementing any register files beyond file zero, with a method for software to query the chip's capabilities.
 
 \section{Block Diagram}
 
