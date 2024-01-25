@@ -76,92 +76,95 @@ class LFO(Elaboratable):
         sine_update_index = [Signal(ceil(log2(self.count))) for x in range (0,self.multiplier_delay)]
         sine_update_enable = [Signal(1) for x in range (0,self.multiplier_delay)]
 
-        with m.If(self.update):
-            m.d.sync += [
-                    self.updating.eq(1)
-                ]
-        with m.If(any(self.updating)):
-            # Get the index of the oscillator to update
-            x = Signal(ceil(log2(self.count)))
-            m.d.comb += x.eq(PriorityEncoder(self.count, self.updating).o)
-            # Increment the target oscillator
-            m.d.sync += self.updating.eq(self.updating << 1)
-            
-            # Decode Waveform
-            PA = Signal(17)
-            OutputPhase = Signal(16)
-            NewDirection = Signal(1)
-            # Sum to PA in the combinational domain, with the extra bit
-            # for overflow
-            m.d.comb += [
-                PA.eq(osc[x].phase_accumulator +
-                    mux(osc[x].is_triangle(),
-                        osc[x].phase_increment << 1,
-                        osc[x].phase_increment
-                    )
-                ),
-                # Flip on overflow if triangle
-                NewDirection.eq(osc[x].direction ^ (PA[16] & osc[x].is_triangle()))
-            ]
-            m.d.sync += [
-                # Store new sum in phase accumulator
-                osc[x].phase_accumulator.eq(PA[0:15]),
-                osc[x].direction.eq(NewDirection)
-            ]
-
-            ##########################
-            # Update sine oscillator #
-            ##########################
-            # The sine oscillator is much simpler:  it's a resonating
-            # state variable filter.
-
-            # Put the multiplication, index, and enable in the pipeline.
-            # Does not cause an update if reset signal has been sent
-            m.d.sync += [
-                sine_update[0].eq(osc[x].cosine_delay * osc[x].phase_increment),
-                cosine_update[0].eq(osc[x].cosine_delay * -osc[x].phase_increment),
-                sine_update_index[0].eq(x),
-                sine_update_enable[0].eq(~self._is_resetting(x))
-            ]
-            # Also execute the WFDR buffer.
-            m.d.sync += [
-                osc[x].waveform.eq(
-                    (osc[x].waveform & ~osc[x].wfdr_mask[3:2])
-                    | (osc[x].wfdr_buffer[3:2] & osc[x].wfdr_mask[3:2])
-                ),
-                # Clear the mask so these commands won't be executed
-                # again next update
-                osc[x].wfdr_mask.eq(0)
-            ]
-            with m.If(osc[x].wfdr_mask[1]):
-                m.d.sync += osc[x].direction.eq(osc[x].wfdr_buffer[1])
-            # Reset signal
-            with m.If(osc[x]._is_resetting()):
-                m.d.sync += self.phase_accumulator[x].eq(0)
-                # Clear the sine wave.  Move tau/2 forward if
-                # direction is 1 (i.e. reverse sine).
+        # Update state machine
+        with m.FSM():
+            with m.State("Start"):
+                with m.If(self.update):
+                    m.d.sync += self.updating.eq(1)
+                    m.next = "Updating"
+                # When not updating, we need to clear the sine oscillator
+                # update pipeline or it will continuously carry out the
+                # final addition.
                 #
-                # If we're setting Direction, then use the
-                # incoming value; else use the registered value
-                m.d.sync += osc[x].sine_delay.eq(0)
-                with m.Switch(mux(osc[x].wfdr_mask[1], osc[x].wfdr_buffer[1],
-                                  osc[x].direction)):
-                    with m.Case(0):
-                        m.d.sync += osc[x].cosine_delay.eq(1)
-                    with m.Case(1):
-                        m.d.sync += osc[x].cosine_delay.eq(-1)
-        with m.Else():
-            # When not updating, we need to clear the sine oscillator
-            # update pipeline or it will continuously carry out the
-            # final addition.
-            #
-            # Only the enable signal matters, leave the rest alone.
-            m.d.sync += [
-                #SineUpdate[0].eq(0),
-                #CosineUpdate[0].eq(0),
-                #SineUpdateIndex[0].eq(0),
-                sine_update_enable[0].eq(0)
-            ]
+                # Only the enable signal matters, leave the rest alone.
+                m.d.sync += [
+                    #SineUpdate[0].eq(0),
+                    #CosineUpdate[0].eq(0),
+                    #SineUpdateIndex[0].eq(0),
+                    sine_update_enable[0].eq(0)
+                ]
+            with m.State("Updating"):
+                # Get the index of the oscillator to update
+                x = Signal(ceil(log2(self.count)))
+                m.d.comb += x.eq(PriorityEncoder(self.count, self.updating).o)
+                # Increment the target oscillator
+                m.d.sync += self.updating.eq(self.updating << 1)
+                with m.If(self.updating[-1] == 0):
+                    m.next = "Start"
+
+                # Decode Waveform
+                PA = Signal(17)
+                OutputPhase = Signal(16)
+                NewDirection = Signal(1)
+                # Sum to PA in the combinational domain, with the extra bit
+                # for overflow
+                m.d.comb += [
+                    PA.eq(osc[x].phase_accumulator +
+                        mux(osc[x].is_triangle(),
+                            osc[x].phase_increment << 1,
+                            osc[x].phase_increment
+                        )
+                    ),
+                    # Flip on overflow if triangle
+                    NewDirection.eq(osc[x].direction ^ (PA[16] & osc[x].is_triangle()))
+                ]
+                m.d.sync += [
+                    # Store new sum in phase accumulator
+                    osc[x].phase_accumulator.eq(PA[0:15]),
+                    osc[x].direction.eq(NewDirection)
+                ]
+
+                ##########################
+                # Update sine oscillator #
+                ##########################
+                # The sine oscillator is much simpler:  it's a resonating
+                # state variable filter.
+
+                # Put the multiplication, index, and enable in the pipeline.
+                # Does not cause an update if reset signal has been sent
+                m.d.sync += [
+                    sine_update[0].eq(osc[x].cosine_delay * osc[x].phase_increment),
+                    cosine_update[0].eq(osc[x].cosine_delay * -osc[x].phase_increment),
+                    sine_update_index[0].eq(x),
+                    sine_update_enable[0].eq(~self._is_resetting(x))
+                ]
+                # Also execute the WFDR buffer.
+                m.d.sync += [
+                    osc[x].waveform.eq(
+                        (osc[x].waveform & ~osc[x].wfdr_mask[3:2])
+                        | (osc[x].wfdr_buffer[3:2] & osc[x].wfdr_mask[3:2])
+                    ),
+                    # Clear the mask so these commands won't be executed
+                    # again next update
+                    osc[x].wfdr_mask.eq(0)
+                ]
+                with m.If(osc[x].wfdr_mask[1]):
+                    m.d.sync += osc[x].direction.eq(osc[x].wfdr_buffer[1])
+                # Reset signal
+                with m.If(osc[x]._is_resetting()):
+                    m.d.sync += self.phase_accumulator[x].eq(0)
+                    # Clear the sine wave.  Move tau/2 forward if
+                    # direction is 1 (i.e. reverse sine).
+                    #
+                    # If we're setting Direction, then use the
+                    # incoming value; else use the registered value
+                    m.d.sync += osc[x].sine_delay.eq(0)
+                    with m.Switch(mux(osc[x].wfdr_mask[1], osc[x].wfdr_buffer[1],
+                                      osc[x].direction)):
+                        with m.Case(0):
+                            m.d.sync += osc[x].cosine_delay.eq(1)
+                        with m.Case(1):
+                            m.d.sync += osc[x].cosine_delay.eq(-1)
 
         # Delay the multiplication a number of cycles for the
         # synthesizer to pipeline the multiplier
