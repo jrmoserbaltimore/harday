@@ -52,6 +52,8 @@ del temp_ramp_tables
 # The envelope controller, not the tone generator, handles the
 # amplitude.
 
+# FIXME:  The latest Amaranth documentation says to use Component
+# instead of Elaboratable directly.
 class ToneGenerator(Elaboratable):
     """
 
@@ -81,22 +83,19 @@ class ToneGenerator(Elaboratable):
         self.duty_cycle = Signal(8)
         self.lfo = Signal(2)
         # Configuration registers
-        self._enable = []
-        self._phase = []
-        self._phase_increment = []
-        self._duty_cycle = []
-        self._lfo = []
-        self._lfo_offset = []
-        for x in range(0, channels):
-            self._enable.append(Signal(2))
-            self._phase.append(Signal(24))
-            self._phase_increment.append(Signal(24))
-            self._duty_cycle.append(Signal(8))
-            self._lfo.append(Signal(2))
-            self._lfo_offset.append(Signal(24))
+        self.register_file = [ToneGeneratorRegisterFile() for x in range(0, channels)]
 
     def elaborate(self, platform) -> Module:
         m = Module()
 
         return m
 
+class ToneGeneratorRegister:
+
+    def __init__(self):
+        self._enable = Signal(2)
+        self._phase = Signal(24)
+        self._phase_increment = Signal(24)
+        self._duty_cycle = Signal(8)
+        self._lfo = Signal(2)
+        self._lfo_offset = Signal(24)
