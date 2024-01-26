@@ -88,6 +88,8 @@ class ToneGenerator(Elaboratable):
     def elaborate(self, platform) -> Module:
         m = Module()
 
+        m.d.comb += m.d.sync.clk.eq(self.clk)
+
         return m
 
 class ToneGeneratorRegister:

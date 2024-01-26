@@ -58,6 +58,8 @@ class LFO(Elaboratable):
     def elaborate(self, platform) -> Module:
         m = Module()
 
+        m.d.comb += m.d.sync.clk.eq(self.clk)
+
         osc = self.register_file
         ##################
         # Update routine #
