@@ -32,8 +32,8 @@ for i in range(0,8):
 
 # compress peak-to-peak relative to the largest amplitude
 temp_ramp_tables /= np.max(temp_ramp_tables)
-# convert to 24-bit 
-ramp_tables = temp_ramp_tables*power(2,23).astype(uint32)
+# convert to positive half of unsigned 24-bit range
+ramp_tables = [Const(x, unsigned(23)) for x in temp_ramp_tables*(power(2,23) - 1).astype(uint32)]
 del temp_ramp_tables
 
 # Mipmapped tone generator
