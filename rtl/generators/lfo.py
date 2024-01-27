@@ -101,7 +101,7 @@ class LFO(Elaboratable):
                 m.d.comb += x.eq(PriorityEncoder(self.count, self.updating).o)
                 # Increment the target oscillator
                 m.d.sync += self.updating.eq(self.updating << 1)
-                with m.If(self.updating[-1] == 0):
+                with m.If(self.updating[-1] == 1):
                     m.next = "Start"
 
                 # Decode Waveform
